@@ -17,7 +17,7 @@
             height: 100vh;
             position: relative;
         }
-        .player, .enemy, .bullet, .crystal {
+        .player, .enemy, .bullet, .crystal, .boss, .bossBullet {
             position: absolute;
             background-size: contain;
             background-repeat: no-repeat;
@@ -46,18 +46,25 @@
             height: 30px;
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,0 100,25 100,75 50,100 0,75 0,25" fill="cyan"/></svg>');
         }
-        #scoreBoard {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
+        .boss {
+            width: 80px;
+            height: 80px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="0" y="0" width="100" height="100" fill="red"/><circle cx="50" cy="50" r="40" fill="yellow"/></svg>');
         }
-        #bulletCount {
+        .bossBullet {
+            width: 15px;
+            height: 15px;
+            background-color: red;
+            border-radius: 50%;
+        }
+        #scoreBoard, #healthBoard, #bulletCount, #bossHealth {
             position: absolute;
-            top: 40px;
-            left: 10px;
             font-size: 18px;
         }
+        #scoreBoard { top: 10px; left: 10px; }
+        #healthBoard { top: 40px; left: 10px; }
+        #bulletCount { top: 70px; left: 10px; }
+        #bossHealth { top: 10px; right: 10px; display: none; }
         #gameOver {
             position: absolute;
             top: 50%;
@@ -71,7 +78,9 @@
 <body>
     <div id="gameArea">
         <div id="scoreBoard">Score: <span id="score">0</span></div>
+        <div id="healthBoard">Health: <span id="health">3</span></div>
         <div id="bulletCount">Bullets: <span id="bullets">1</span></div>
+        <div id="bossHealth">Boss Health: <span id="bossHealthValue">10</span></div>
         <div id="gameOver">GAME OVER</div>
     </div>
 
@@ -87,6 +96,9 @@
         let enemySpeed = 2;
         let bulletCount = 1;
         let gameActive = true;
+        let playerHealth = 3;
+        let bossActive = false;
+        let bossHealth = 10;
 
         function updatePlayerPosition() {
             player.style.left = `${playerX - 25}px`;
@@ -103,34 +115,37 @@
             }
         });
 
-        function createBullet() {
-            if (!gameActive) return;
-            for (let i = 0; i < bulletCount; i++) {
-                const bullet = document.createElement('div');
-                bullet.className = 'bullet';
-                bullet.style.left = `${playerX - 5 + (i - Math.floor(bulletCount/2)) * 15}px`;
-                bullet.style.top = `${playerY - 30}px`;
-                gameArea.appendChild(bullet);
+        function createBullet(x, y, isPlayerBullet = true) {
+            const bullet = document.createElement('div');
+            bullet.className = isPlayerBullet ? 'bullet' : 'bossBullet';
+            bullet.style.left = `${x - 5}px`;
+            bullet.style.top = `${y - (isPlayerBullet ? 30 : -30)}px`;
+            gameArea.appendChild(bullet);
 
-                function moveBullet() {
-                    if (!gameActive) {
-                        bullet.remove();
-                        return;
-                    }
-                    const y = parseInt(bullet.style.top);
-                    if (y > 0) {
-                        bullet.style.top = `${y - 5}px`;
-                        requestAnimationFrame(moveBullet);
-                    } else {
-                        bullet.remove();
-                    }
+            function moveBullet() {
+                if (!gameActive) {
+                    bullet.remove();
+                    return;
                 }
-
-                requestAnimationFrame(moveBullet);
+                const y = parseInt(bullet.style.top);
+                if ((isPlayerBullet && y > 0) || (!isPlayerBullet && y < window.innerHeight)) {
+                    bullet.style.top = `${y + (isPlayerBullet ? -5 : 5)}px`;
+                    requestAnimationFrame(moveBullet);
+                } else {
+                    bullet.remove();
+                }
             }
+
+            requestAnimationFrame(moveBullet);
         }
 
-        document.addEventListener('click', createBullet);
+        document.addEventListener('click', () => {
+            if (gameActive) {
+                for (let i = 0; i < bulletCount; i++) {
+                    createBullet(playerX + (i - Math.floor(bulletCount/2)) * 15, playerY);
+                }
+            }
+        });
 
         function getRandomColor() {
             return `rgb(${Math.random()*255},${Math.random()*255},${Math.random()*255})`;
@@ -147,7 +162,7 @@
         }
 
         function createEnemy() {
-            if (!gameActive) return;
+            if (!gameActive || bossActive) return;
             const enemy = document.createElement('div');
             enemy.className = 'enemy';
             enemy.style.left = `${Math.random() * (window.innerWidth - 40)}px`;
@@ -187,7 +202,7 @@
         const enemyInterval = setInterval(createEnemy, 2000);
 
         function createCrystal() {
-            if (!gameActive) return;
+            if (!gameActive || bossActive) return;
             const crystal = document.createElement('div');
             crystal.className = 'crystal';
             crystal.style.left = `${Math.random() * (window.innerWidth - 30)}px`;
@@ -211,14 +226,55 @@
             requestAnimationFrame(moveCrystal);
         }
 
+        function createBoss() {
+            if (!gameActive || bossActive) return;
+            bossActive = true;
+            bossHealth = 10;
+            document.getElementById('bossHealth').style.display = 'block';
+            document.getElementById('bossHealthValue').textContent = bossHealth;
+
+            const boss = document.createElement('div');
+            boss.className = 'boss';
+            boss.style.left = `${window.innerWidth / 2 - 40}px`;
+            boss.style.top = '0px';
+            gameArea.appendChild(boss);
+
+            function moveBoss() {
+                if (!gameActive || !bossActive) {
+                    boss.remove();
+                    return;
+                }
+                const y = parseInt(boss.style.top);
+                if (y < 100) {
+                    boss.style.top = `${y + 2}px`;
+                    requestAnimationFrame(moveBoss);
+                } else {
+                    bossShooting();
+                }
+            }
+
+            function bossShooting() {
+                if (!gameActive || !bossActive) return;
+                createBullet(parseInt(boss.style.left) + 40, parseInt(boss.style.top) + 80, false);
+                if (bossActive) {
+                    setTimeout(bossShooting, 1000);
+                }
+            }
+
+            requestAnimationFrame(moveBoss);
+        }
+
         function checkCollisions() {
             if (!gameActive) return;
             const bullets = document.querySelectorAll('.bullet');
             const enemies = document.querySelectorAll('.enemy');
             const crystals = document.querySelectorAll('.crystal');
+            const boss = document.querySelector('.boss');
+            const bossBullets = document.querySelectorAll('.bossBullet');
 
             bullets.forEach(bullet => {
                 const bulletRect = bullet.getBoundingClientRect();
+                
                 enemies.forEach(enemy => {
                     const enemyRect = enemy.getBoundingClientRect();
                     if (
@@ -235,6 +291,7 @@
 
                         if (score % 100 === 0) {
                             enemySpeed *= 1.1;
+                            createBoss();
                         }
 
                         if (score % 33 === 0) {
@@ -242,6 +299,27 @@
                         }
                     }
                 });
+
+                if (boss && bossActive) {
+                    const bossRect = boss.getBoundingClientRect();
+                    if (
+                        bulletRect.left < bossRect.right &&
+                        bulletRect.right > bossRect.left &&
+                        bulletRect.top < bossRect.bottom &&
+                        bulletRect.bottom > bossRect.top
+                    ) {
+                        bossHealth--;
+                        document.getElementById('bossHealthValue').textContent = bossHealth;
+                        bullet.remove();
+                        if (bossHealth <= 0) {
+                            boss.remove();
+                            bossActive = false;
+                            document.getElementById('bossHealth').style.display = 'none';
+                            score += 50;
+                            updateScore();
+                        }
+                    }
+                }
 
                 crystals.forEach(crystal => {
                     const crystalRect = crystal.getBoundingClientRect();
@@ -257,6 +335,24 @@
                         crystal.remove();
                     }
                 });
+            });
+
+            const playerRect = player.getBoundingClientRect();
+            bossBullets.forEach(bossBullet => {
+                const bossBulletRect = bossBullet.getBoundingClientRect();
+                if (
+                    bossBulletRect.left < playerRect.right &&
+                    bossBulletRect.right > playerRect.left &&
+                    bossBulletRect.top < playerRect.bottom &&
+                    bossBulletRect.bottom > playerRect.top
+                ) {
+                    playerHealth--;
+                    document.getElementById('health').textContent = playerHealth;
+                    bossBullet.remove();
+                    if (playerHealth <= 0) {
+                        gameOver();
+                    }
+                }
             });
 
             requestAnimationFrame(checkCollisions);

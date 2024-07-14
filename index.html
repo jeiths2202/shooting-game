@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>고급 슈팅 게임</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        #gameArea {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        .player, .enemy, .bullet, .crystal {
+            position: absolute;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+        .player {
+            width: 50px;
+            height: 50px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,0 100,100 50,80 0,100" fill="blue"/></svg>');
+        }
+        .enemy {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+        }
+        .bullet {
+            width: 10px;
+            height: 20px;
+            background-color: yellow;
+        }
+        .crystal {
+            width: 30px;
+            height: 30px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><polygon points="50,0 100,25 100,75 50,100 0,75 0,25" fill="cyan"/></svg>');
+        }
+        #scoreBoard {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+        }
+        #bulletCount {
+            position: absolute;
+            top: 40px;
+            left: 10px;
+            font-size: 18px;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameArea">
+        <div id="scoreBoard">Score: <span id="score">0</span></div>
+        <div id="bulletCount">Bullets: <span id="bullets">1</span></div>
+        <div id="gameOver">GAME OVER</div>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const player = document.createElement('div');
+        player.className = 'player';
+        gameArea.appendChild(player);
+
+        let playerX = window.innerWidth / 2;
+        let playerY = window.innerHeight - 60;
+        let score = 0;
+        let enemySpeed = 2;
+        let bulletCount = 1;
+        let gameActive = true;
+
+        function updatePlayerPosition() {
+            player.style.left = `${playerX - 25}px`;
+            player.style.top = `${playerY - 25}px`;
+        }
+
+        updatePlayerPosition();
+
+        document.addEventListener('mousemove', (e) => {
+            if (gameActive) {
+                playerX = e.clientX;
+                playerY = e.clientY;
+                updatePlayerPosition();
+            }
+        });
+
+        function createBullet() {
+            if (!gameActive) return;
+            for (let i = 0; i < bulletCount; i++) {
+                const bullet = document.createElement('div');
+                bullet.className = 'bullet';
+                bullet.style.left = `${playerX - 5 + (i - Math.floor(bulletCount/2)) * 15}px`;
+                bullet.style.top = `${playerY - 30}px`;
+                gameArea.appendChild(bullet);
+
+                function moveBullet() {
+                    if (!gameActive) {
+                        bullet.remove();
+                        return;
+                    }
+                    const y = parseInt(bullet.style.top);
+                    if (y > 0) {
+                        bullet.style.top = `${y - 5}px`;
+                        requestAnimationFrame(moveBullet);
+                    } else {
+                        bullet.remove();
+                    }
+                }
+
+                requestAnimationFrame(moveBullet);
+            }
+        }
+
+        document.addEventListener('click', createBullet);
+
+        function getRandomColor() {
+            return `rgb(${Math.random()*255},${Math.random()*255},${Math.random()*255})`;
+        }
+
+        function getRandomShape() {
+            const shapes = [
+                '<circle cx="50" cy="50" r="50" />',
+                '<rect x="0" y="0" width="100" height="100" />',
+                '<polygon points="50,0 100,100 0,100" />',
+                '<polygon points="50,0 100,50 50,100 0,50" />'
+            ];
+            return shapes[Math.floor(Math.random() * shapes.length)];
+        }
+
+        function createEnemy() {
+            if (!gameActive) return;
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            enemy.style.left = `${Math.random() * (window.innerWidth - 40)}px`;
+            enemy.style.top = '0px';
+            
+            const enemyValue = Math.floor(Math.random() * 9) + 1;
+            enemy.innerHTML = `
+                <svg width="40" height="40" viewBox="0 0 100 100">
+                    ${getRandomShape()}
+                </svg>
+                <span style="position:absolute;">${enemyValue}</span>
+            `;
+            enemy.querySelector('svg').style.fill = getRandomColor();
+            enemy.dataset.value = enemyValue;
+            
+            gameArea.appendChild(enemy);
+
+            function moveEnemy() {
+                if (!gameActive) {
+                    enemy.remove();
+                    return;
+                }
+                const y = parseInt(enemy.style.top);
+                if (y < window.innerHeight) {
+                    enemy.style.top = `${y + enemySpeed}px`;
+                    requestAnimationFrame(moveEnemy);
+                } else {
+                    score -= parseInt(enemy.dataset.value);
+                    updateScore();
+                    enemy.remove();
+                }
+            }
+
+            requestAnimationFrame(moveEnemy);
+        }
+
+        const enemyInterval = setInterval(createEnemy, 2000);
+
+        function createCrystal() {
+            if (!gameActive) return;
+            const crystal = document.createElement('div');
+            crystal.className = 'crystal';
+            crystal.style.left = `${Math.random() * (window.innerWidth - 30)}px`;
+            crystal.style.top = '0px';
+            gameArea.appendChild(crystal);
+
+            function moveCrystal() {
+                if (!gameActive) {
+                    crystal.remove();
+                    return;
+                }
+                const y = parseInt(crystal.style.top);
+                if (y < window.innerHeight) {
+                    crystal.style.top = `${y + 1}px`;
+                    requestAnimationFrame(moveCrystal);
+                } else {
+                    crystal.remove();
+                }
+            }
+
+            requestAnimationFrame(moveCrystal);
+        }
+
+        function checkCollisions() {
+            if (!gameActive) return;
+            const bullets = document.querySelectorAll('.bullet');
+            const enemies = document.querySelectorAll('.enemy');
+            const crystals = document.querySelectorAll('.crystal');
+
+            bullets.forEach(bullet => {
+                const bulletRect = bullet.getBoundingClientRect();
+                enemies.forEach(enemy => {
+                    const enemyRect = enemy.getBoundingClientRect();
+                    if (
+                        bulletRect.left < enemyRect.right &&
+                        bulletRect.right > enemyRect.left &&
+                        bulletRect.top < enemyRect.bottom &&
+                        bulletRect.bottom > enemyRect.top
+                    ) {
+                        const enemyValue = parseInt(enemy.dataset.value);
+                        score += enemyValue;
+                        updateScore();
+                        bullet.remove();
+                        enemy.remove();
+
+                        if (score % 100 === 0) {
+                            enemySpeed *= 1.1;
+                        }
+
+                        if (score % 33 === 0) {
+                            createCrystal();
+                        }
+                    }
+                });
+
+                crystals.forEach(crystal => {
+                    const crystalRect = crystal.getBoundingClientRect();
+                    if (
+                        bulletRect.left < crystalRect.right &&
+                        bulletRect.right > crystalRect.left &&
+                        bulletRect.top < crystalRect.bottom &&
+                        bulletRect.bottom > crystalRect.top
+                    ) {
+                        bulletCount++;
+                        document.getElementById('bullets').textContent = bulletCount;
+                        bullet.remove();
+                        crystal.remove();
+                    }
+                });
+            });
+
+            requestAnimationFrame(checkCollisions);
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            if (score <= 0) {
+                gameOver();
+            }
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('gameOver').style.display = 'block';
+            clearInterval(enemyInterval);
+        }
+
+        requestAnimationFrame(checkCollisions);
+    </script>
+</body>
+</html>

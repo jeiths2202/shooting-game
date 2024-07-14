@@ -190,8 +190,7 @@
                     enemy.style.top = `${y + enemySpeed}px`;
                     requestAnimationFrame(moveEnemy);
                 } else {
-                    score -= parseInt(enemy.dataset.value);
-                    updateScore();
+                    // 스코어를 감소시키지 않고 적 우주선만 제거
                     enemy.remove();
                 }
             }
@@ -360,9 +359,6 @@
 
         function updateScore() {
             document.getElementById('score').textContent = score;
-            if (score <= 0) {
-                gameOver();
-            }
         }
 
         function gameOver() {
